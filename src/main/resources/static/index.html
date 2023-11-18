@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JWT Decoder</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #343a40;
+            color: #ffffff;
+        }
+
+        .container {
+            background-color: #495057;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 50px;
+        }
+
+        label {
+            color: #adb5bd;
+        }
+
+        #decodedOutput {
+            background-color: #2d2d2d;
+            border: 1px solid #6c757d;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-x: auto;
+            display: none;
+        }
+
+        #decodedOutput pre {
+            color: #89d185;
+            margin-bottom: 0;
+            line-height: 1.8;
+        }
+
+        .line {
+            position: relative;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .copy-btn {
+            position: absolute;
+            right: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            padding: 5px 10px;
+            margin-left: 10px;
+            font-size: 12px;
+        }
+
+        .copy-btn:hover {
+            background-color: #45a049;
+        }
+
+        .line-number {
+            color: #999999;
+            display: inline-block;
+            width: 50px;
+            text-align: right;
+            margin-right: 10px;
+            user-select: none;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #004085;
+        }
+
+        .json-value {
+            color: #c3e9ff;
+        }
+
+        .json-number {
+            color: #d08770;
+        }
+
+        .json-boolean {
+            color: #ebcb8b;
+        }
+
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2 style="color: #fff;">JWT Decoder</h2>
+    <form id="jwtForm">
+        <div class="form-group">
+            <label for="jwtInput">JWT:</label>
+            <input type="text" class="form-control" id="jwtInput" placeholder="Enter JWT">
+        </div>
+        <button type="submit" class="btn btn-primary">Decode</button>
+    </form>
+    <div id="decodedOutput" class="mt-3" style="display: none;"></div>
+</div>
+
+<script>
+    function addLineNumbers(json) {
+        var jsonLines = json.split('\n');
+        var formattedHtml = jsonLines.map(function (line, index) {
+            var lineNumberHtml = '<span class="line-number">' + (index + 1) + '</span>';
+            var match = line.match(/:\s*(".*?"|\d+|true|false|null)/);
+            var valueToCopy = match ? match[1] : '';
+            // Ensure we only copy the inner text of the value, without quotes
+            var innerValue = valueToCopy.replace(/^"|"$/g, '');
+            var encodedValue = encodeURIComponent(innerValue);
+            var lineHtml = line
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/("(.*?)":\s*)(".+?")/g, '$1<span class="json-value">$3</span>')
+                .replace(/("(.*?)":\s*)(\d+)/g, '$1<span class="json-number">$3</span>')
+                .replace(/("(.*?)":\s*)(true|false|null)/g, '$1<span class="json-boolean">$3</span>');
+            // Add the copy button back with the encoded value
+            var copyButtonHtml = '<button class="copy-btn" data-text="' + encodedValue + '" style="display: none;">Copy</button>';
+            return '<div class="line" onmouseover="showButton(this)" onmouseout="hideButton(this)">' +
+                lineNumberHtml + lineHtml + copyButtonHtml + '</div>';
+        }).join('');
+
+        return formattedHtml;
+    }
+
+    function showButton(lineElement) {
+        var button = lineElement.querySelector('.copy-btn');
+        button.style.display = 'inline';
+    }
+
+    function hideButton(lineElement) {
+        lineElement.querySelector('.copy-btn').style.display = 'none';
+    }
+
+    document.addEventListener('click', function(event) {
+        if (event.target.classList.contains('copy-btn')) {
+            var textToCopy = decodeURIComponent(event.target.getAttribute('data-text'));
+            copyToClipboard(textToCopy);
+        }
+    });
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(function() {
+            console.log('Text copied to clipboard');
+        }).catch(function(err) {
+            console.error('Could not copy text: ', err);
+        });
+    }
+
+    document.getElementById('jwtForm').onsubmit = function(event) {
+        event.preventDefault();
+        var jwt = document.getElementById('jwtInput').value;
+        fetch('/jwt-decoder/decode', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain'
+            },
+            body: jwt
+        })
+            .then(response => response.text())
+            .then(data => {
+                try {
+                    // Format the output as JSON
+                    // Inside the try block of the form submission handler
+                    var formattedOutput = JSON.stringify(JSON.parse(data), null, 2);
+                    var outputDiv = document.getElementById('decodedOutput');
+                    outputDiv.innerHTML = '<pre>' + addLineNumbers(formattedOutput) + '</pre>';
+                    outputDiv.style.display = 'block'; // Show the output box
+
+                } catch (e) {
+                    var outputDiv = document.getElementById('decodedOutput');
+                    outputDiv.innerHTML = '<pre>' + data + '</pre>';
+                    outputDiv.style.display = 'block'; // Show the output box
+                }
+            })
+            .catch(error => {
+                var outputDiv = document.getElementById('decodedOutput');
+                outputDiv.innerHTML = '<pre>Error: ' + error + '</pre>';
+                outputDiv.style.display = 'block'; // Show the output box
+            });
+    };
+</script>
+
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+</body>
+</html>

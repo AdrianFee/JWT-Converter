@@ -1,0 +1,10 @@
+# Ignore compiled files
+*.class
+*.jar
+*.war
+
+# Ignore directories
+target/
+node_modules/
+
+.DS_Store
